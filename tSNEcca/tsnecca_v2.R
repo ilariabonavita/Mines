@@ -1,4 +1,6 @@
-#' @examples
+# tSNE-cca method
+# description Compute tSNE-correlation analysis between two data matrices
+# 
 NX <- 10
 NY <- 10
 q <- 3
@@ -17,100 +19,100 @@ if(anyNA(X)| anyNA(Y)){
   rm(remove.na) 
 }
 
-## Set default values to the unspecified parameters
+##### Set default values to the unspecified parameters
+
 # Random inizialisation
-
 W <- matrix(rnorm(NX*q),nrow = d, ncol = ncol(X))
-W <- matrix(0,nrow = d, ncol = ncol(X))
-Z <- matrix(0,nrow = d, ncol = ncol(Y))
-Z <- matrix(1,nrow = d, ncol = ncol(Y))
+Z <- matrix(rnorm(NY*q),nrow = d, ncol = ncol(Y))
 
+# Normilize matrices
+W <- t(apply(W,1, function(x){ x/sum(x)}))
+Z <- t(apply(Z,1, function(x){ x/sum(x)}))
+
+# Assign value to sigma^2 (to do: tune parameter)
 sigma2 <- 1
+
+#### Define a matrix of the distance between Xi and Xj (Yi and Yj) for all the possible combination of elements in X (Y)
 X.pairs <- combn(seq(1:nrow(X)),2)
 Y.pairs <- combn(seq(1:nrow(Y)),2)
 
+# For simplicity, we use only the distances from now on
 X.D <- X[X.pairs[1,],] - X[X.pairs[2,],]
 Y.D <- Y[Y.pairs[1,],] - Y[Y.pairs[2,],]
 
-# Define the function to optimize
-# 
-p.fun <- function(W, X.d){ 
-  p.denom <-sum( apply(X.pairs, 2, function(P){
-    X.dkl <- X[P[1],]-X[P[2],]
-    p.denom <- exp(-norm(W%*%X.dkl,'f')^2/(2*sigma2))
-    return(p.denom)
-  }))
-  p=exp(-norm(W%*%X.d,'f')^2/(2*sigma2))/p.denom
+#### Define the cost function C
+
+# Define pij 
+p.fun <- function(W, dij, d){
+  p1 <- 0
+  for(i in 1:nrow(d)){
+    p1 <- p1 + exp(-(norm(W%*%as.matrix(d[i,]),'f')^2)/(2*sigma2))
+  }
+  p <- exp(-(norm(W%*%as.matrix(dij),'f')^2)/(2*sigma2))/p1
   return(p)
 }
  
-
-q.fun <- function(Z, Y.d){
-  q.denom <- sum( apply(Y.pairs, 2, function(P){
-    Y.dkl <- Y[P[1],] - Y[P[2],]
-    q.denom <- (1 + norm(Z%*%Y.dkl)^2)^(-1)
-    return(q.denom)
-  }))
-  q <- ((1 + norm(Z%*%Y.d)^2)^(-1))/q.denom
+# Define qij
+q.fun <- function(Z, dij, d){
+  q.denom <-0
+  for (i in 1:nrow(d)){
+    q.denom <- q.denom + ((1+ norm(Z%*%d[i,],'f')^2)^(-1))
+  }
+  q <- ((1 + norm(Z%*%as.matrix(dij),'f')^2)^(-1))/q.denom
   return(q)
 }
 
-C.fun <- function(W,Z){
+# Define the cost function C
+C.fun <- function(W,Z,X.D,Y.D){
   C <- 0
-  for(i in 1:ncol(X.pairs)){
-    C <- C+ p.fun(W,X.D[,i])*log(p.fun(W,X.D[,i])/q.fun(Z,Y.D[,i]))
+  for(i in 1:nrow(X.D)){
+    C <- C+ p.fun(W,X.D[i,],X.D)*log(p.fun(W,X.D[i,],X.D)/q.fun(Z,Y.D[i,],Y.D))
   }
   return(C)
 }
 
-p.deriv <- function(W,X.d){
+##### Compute the derivatives 
+
+# pij derivative
+p.deriv <- function(W,dij, d){
   p1 <- W*0
- # p1 <-matrix(0,nrow = nrow(W), ncol = ncol(W))
-  for(i in 1:ncol(X.pairs)){
-    p1 <- -W %*% as.matrix(X.D[i,]) %*% t(as.matrix(X.D[i,]))*p.fun(W,X.D[i,]) + p1
+  for(i in 1:nrow(d)){
+    p1 <- -W %*% as.matrix(d[i,]) %*% t(as.matrix(d[i,]))*p.fun(W,d[i,],d) + p1
     }
-  p.deriv <- (p.fun(W,X.d)/sigma2)*(-W %*% as.matrix(X.d) %*% t(as.matrix(X.d)) - p1)
+  p.deriv <- (p.fun(W,dij,d)/sigma2)*(-W %*% as.matrix(dij) %*% t(as.matrix(dij)) - p1)
   return(p.deriv)
 }
 
-p.deriv.element <- function(W,X.d,t,z){
-  p1 <- 0
-  for (i in 1:ncol(X.pairs)){
-    p1 <- p1 + (-W[t,]%*%X.D[i,]*(X.D[i,t])*p.fun(W,X.D[i,]))
+# qij derivative
+q.deriv <- function(Z,dij,d){
+  q1 <- Z*0
+  for (i in 1:nrow(d)){
+    q1 =  q1 + (-q.fun(Z,d[i,],d)*Z %*% d[i,] %*% t(d[i,]))/(1+ norm(Z%*%d[i,],'f')^2)
   }
-  p<- -(p.fun(W,X.d)/sigma2)*p1 - W[t,]%*%X.d*(X.d[z])*p.fun(W,X.d)
-  return(p)
-}
-
-q.deriv <- function(Z,Y.d){
-  q1 <- matrix(0,nrow = nrow(Z), ncol = ncol(Z))
-  for(i in 1:ncol(Y.pairs)){
-    q1 <- q1 + (-q.fun(Z,Y.D[i,])^2 *Z%*% as.matrix(Y.D[i,]) %*% t(as.matrix(Y.D[i,]))) 
-  }
-  q.deriv <- (-2/(1+norm(Z*Y.d)^2))*(Z %*% as.matrix(Y.d) %*% t(as.matrix(Y.d)) * q.fun(Z,Y.d) + q1) 
+  q.deriv <- (-2*q.fun(Z,dij,d))*((Z%*%dij%*%t(dij))/(1+ norm(Z%*%dij,'f')^2) + q1)
 return(q.deriv)  
 }
 
-
-C.W.deriv <-  function(W,Z){
-  C <- matrix(0,ncol = ncol(W), nrow = nrow(W))
-  for (i in c(1:ncol(X.pairs))){
-    C <- C+ p.deriv(W,X.D[,i])*(log(p.fun(W,X.D[,i])/q.fun(Z,Y.D[,i])) +1)
+# C derivative with respect to W
+C.W.deriv <-  function(W,Z,dx,dy){
+  C <- W*0
+  for (i in c(1:nrow(dx))){
+    C <- C+ p.deriv(W,dx[i,],dx)*(log(p.fun(W,dx[i,],dx)/q.fun(Z,dy[i,],dy)) +1)
   }
-  return(sum(C))
+  return(C)
 }
 
-C.Z.deriv <- function(W,Z){
-  C <- matrix(0,ncol = ncol(Z), nrow = nrow(Z))
-  for (i in c(1:ncol(Y.pairs))){
-    C <- C+ (q.deriv(Z,Y.D[,i])/q.fun(Z,Y.D[,i]))*p.fun(W,X.D[,i])
+# C derivative with respect to Z
+C.Z.deriv <- function(W,Z,dx,dy){
+  C <- W*0
+  for (i in c(1:nrow(dx))){
+    C <- C+ (-q.deriv(Z,dy[i,],dy)/q.fun(Z,dy[i,],dy))*p.fun(W,dx[i,],dx)
   }
-  return(sum(C))
+  return(C)
 }
 
 #=========================================
 # gradient checking
-for()
 set.seed(1234+k)
 
 W.test <- matrix(rnorm(NX*q),nrow = d, ncol = ncol(X))*10
@@ -122,14 +124,15 @@ W.test <- matrix(2,nrow = d, ncol = ncol(X))
 W.test  <- matrix(sample.int(4, d*ncol(X), replace = T), nrow = d, ncol = ncol(X))
 eps <-0.0001
 
-t <- 2
-z <- 2
+t <- 1
+z <- 1
 W.test <- W
 W.plus <- W.test 
 W.plus[t,z] <- W.test[t,z] + eps
 W.minus <- W.test 
 W.minus[t,z] <- W.test[t,z] - eps
 
+Z.test <- Z
 Z.plus <- Z.test 
 Z.plus[t,z] <- Z.test[t,z] + eps
 Z.minus <- Z.test 
@@ -137,7 +140,7 @@ Z.minus[t,z] <- Z.test[t,z] - eps
 
 
 X.test <- X.D[12,]
-Y.test <- Y.D[,]
+Y.test <- Y.D[1,]
 
 # p.deriv
 p.deriv.approx <-(p.fun(W.plus,X.test) - p.fun(W.minus, X.test))/(2*eps) 
@@ -151,7 +154,20 @@ plot( k, p.deriv.approx, type="l", col="green")
 
 
 # q.deriv
-q.deriv.approx <-(q.fun(Z.plus,Y.test) - q.fun(Z.minus, Y.test))/(2*eps) 
-q.deriv(Z.test,Y.test)
+q.deriv.approx <-(q.fun(Z.plus,Y.test, Y.D) - q.fun(Z.minus, Y.test, Y.D))/(2*eps) 
+q.deriv(Z.test,Y.test, Y.D)
 q.deriv.approx
 
+# C.W deriv
+C.W.deriv.approx <- (C.fun(W.plus, Z, X.D, Y.D)- C.fun(W.minus, Z, X.D, Y.D))/(2*eps) 
+C.W.deriv.approx
+C.W.deriv(W.test,Z,X.D,Y.D)
+
+# C.Z deriv
+C.Z.deriv.approx <- (C.fun(W, Z.plus, X.D, Y.D)- C.fun(W, Z.minus, X.D, Y.D))/(2*eps) 
+C.Z.deriv.approx
+C.Z.deriv(W,Z.test,X.D,Y.D)
+
+
+
+#################### check ok
