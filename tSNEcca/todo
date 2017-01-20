@@ -1,0 +1,15 @@
+TO DO:
+- parallelize KL cost
+- test on small 3d data (try to recover spiral or line)
+- try other gradient descent methods
+- check Hilber-Smith indipendence criterion
+- check KMeans++ for choosing the neighbours
+- gene similarity score across two gene networks ?
+- initialize the matrix from CCA
+- understand better the crowding problem
+- good projection for reducing the noise?
+- Sammon mapping
+- Find a good dataset for testing!!!
+
+- time the algorithm (comparae si CCA/ no CCA)
+- compare results with CCA (and later maybe NKCCA and NCCA too)

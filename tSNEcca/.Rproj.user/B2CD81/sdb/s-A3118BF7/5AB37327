@@ -1,0 +1,20 @@
+{
+    "collab_server" : "",
+    "contents" : "#### Define the cost function C\n\n# Define pij and qij\n\n### things that can be computed only once\n\n### Define Student t distribution\n\nij.distr <- function(Dist, W, id.pair, allnumer.vec, denom){\n  \n  distr <- allnumer.vec[id.pair]/denom\n  \n  return(distr)\n}\n\nallnumerator.vec <- function(Dist, W){\n  numerator <- rep(0,nrow(Dist))\n  numerator <- apply(Dist, 1, function(x){\n    numij <- (1 + norm(W%*%as.matrix(x),'f')^2)^(-1)\n    return(numij)\n  })\n}\n\n\ndistr.vec <- function(Dist,W,allnum){\n  denom <- sum(allnum)\n  d <- rep(0,nrow(Dist))\n  for (i in seq(nrow(Dist))){\n    d[i] <- ij.distr(Dist,W,i,allnum,denom)\n  }\n  return(d)\n}\n\n## Define the cost function\nC.fun <- function(P.distr,Q.distr){\n\nKL.fun <- function(P.distr, Q.distr){\n  KL <- 0\n  for(i in 1:length(P.distr)){\n    KL <- KL+ P.distr[i]*log(P.distr[i]/Q.distr[i])\n  }\n  return(KL)\n}### first compute KL(P||Q)\nKLpq <- KL.fun(P.distr, Q.distr)\nKLqp <- KL.fun(Q.distr, P.distr)\n  C<- 0.5*(KLpq + KLqp)\n  return(C)\n}\n\n# #================================================================================\n# #--- example for testing only\n# \n# ## Set some parameters for data generation\n# N <- 10 # overall number of examples\n# MaxAngle <- 4*pi\n# MinRadius <-0.3\n# MaxRadius <- 8\n# sx <- 0.5\n# sy <- 0.5\n# set.seed(1234)\n# ## Generate data for views 1,2\n# t <- seq(0, MaxAngle, length.out = N)\n# r <- seq(MinRadius, MaxRadius, length.out = N) + 2*runif(N)\n# #### generate X, the noise can be added!\n# X <- cbind(r*cos(t+0*rnorm(N)*0.05), r*sin(t+0*rnorm(N)*0.05),rnorm(N*2))\n# #### generate Y, the noise can be added!\n# Y <- cbind(t+0*rnorm(N)*1, 2*rnorm(N),rnorm(N*2))\n# ## Generate two initial random projcetion matrices\n# W <- matrix(rnorm(N*q),nrow = d, ncol = ncol(XTr))\n# W <- t(apply(W,1, function(x){ x/sum(x)}))\n# Z <- matrix(rnorm(N*q),nrow = d, ncol = ncol(YTr))\n# Z <- t(apply(Z,1, function(x){ x/sum(x)}))\n# \n# ## Define distance matrices for the two views\n# X.pairs <- combn(seq(1:nrow(X)),2)\n# Y.pairs <- combn(seq(1:nrow(Y)),2)\n# X.Dist <-  X[X.pairs[1,],] - X[X.pairs[2,],]\n# Y.Dist <- Y[Y.pairs[1,],] - Y[Y.pairs[2,],]\n# \n# ## Compute distribution of pairwise distances in the projected space\n# X.distr.vec <- distr.vec(X.Dist,W)\n# Y.distr.vec <- distr.vec(Y.Dist,Z)\n# \n# ## Compute Cost function\n# # compute the two KL matrices\n# KLpq <- KL.fun(X.distr.vec, Y.distr.vec)\n# KLqp <- KL.fun(Y.distr.vec, X.distr.vec)\n# \n# # compute the cost function\n# C <- C.fun(KLpq,KLqp)\n# \n# \n",
+    "created" : 1484560174472.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "390422732",
+    "id" : "5AB37327",
+    "lastKnownWriteTime" : 1484236654,
+    "last_content_update" : 1484236654,
+    "path" : "~/My_project/tSNEcca/distr_cost_fun.R",
+    "project_path" : "distr_cost_fun.R",
+    "properties" : {
+    },
+    "relative_order" : 1,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_source"
+}

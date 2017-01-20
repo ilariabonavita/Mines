@@ -1,0 +1,21 @@
+{
+    "collab_server" : "",
+    "contents" : "\nbatch.grad.desc.fun <- function(X.dist,\n                                Y.dist,\n                                Nsample,\n                                dim.out=2,\n                                gamma.list= c(0.05, 0.01, 0.005, 0.001),\n                                nexper = 1,\n                                maxiter= 200,\n                                perf.cca=F,\n                                wd.path= '/Users/ilaria_bonavita/My_project/tSNEcca',\n                                exp.name=NULL\n                                )\n{ \n  exp.path <- paste0(wd.path,'/N',Nsample,'_in',ncol(X.dist),'_out',dim.out)\n  if(!is.null(exp.name))\n    exp.path <- paste0(exp.path,'_',exp.name)\n  \n  dir.create(exp.path)\n  \n  for (k in 1:nexper){\n    \n    # Inizialize W,Z for each experiment\n    if (perf.cca){\n    # iniziatlize from cca  \n      library('CCA')\n      print('CCA performed on the distances matrices to initialize W and Z')\n      cca.out <- cc(XTr.dist,YTr.dist)\n      W <- cca.out$xcoef\n      Z <- cca.out$ycoef\n    }  else { \n    # random initialization\n    set.seed(142+k)\n    W <- matrix(rnorm(Nsample*ncol(X.dist)),nrow = dim.out, ncol = ncol(X.dist))\n    Z <- matrix(rnorm(Nsample*ncol(Y.dist)),nrow = dim.out, ncol = ncol(Y.dist))\n    }\n    # normalize projection matrices  \n    W <- t(apply(W,1, function(x){ x/sum(x)}))\n    Z <- t(apply(Z,1, function(x){ x/sum(x)}))\n    \n    W.base <- W\n    Z.base <- Z\n    Wold <- W.base\n    Zold <- Z.base\n    \n    for (gamma in gamma.list){\n      fold.path <- paste0(exp.path,'/exp_',k,'gamma',gamma)\n      dir.create(fold.path)\n      # Create a vector where to save the difference C.new - C.old at each iteration \n      diff <- rep(0, maxiter)\n      \n      for(i in c(1: maxiter)){\n        source(paste0(wd.path,'/distr_cost_fun.R'))\n        source(paste0(wd.path,'/gradient_functions.R'))\n        \n        allnum.P <- allnumerator.vec(X.dist,Wold)\n        allnum.Q <- allnumerator.vec(Y.dist,Zold)\n        \n        distr.P <- distr.vec(X.dist,Wold,allnum.P)\n        distr.Q <- distr.vec(Y.dist,Zold,allnum.Q)\n        \n        C.dW <- C.deriv(X.dist,Wold,allnum.P,distr.P,distr.Q)\n        C.dZ <- C.deriv(Y.dist,Zold,allnum.Q,distr.Q,distr.P)\n        \n        W <- Wold - gamma*C.dW\n        Z <- Zold - gamma*C.dZ\n        \n        #print(W)\n        #print(Z)\n        \n        #--- compute difference Cold Cnew\n        allnum.P.new <- allnumerator.vec(X.dist,W)\n        allnum.Q.new <- allnumerator.vec(Y.dist,Z)\n        distr.P.new <- distr.vec(X.dist,W,allnum.P.new)\n        distr.Q.new <- distr.vec(Y.dist,Z,allnum.Q.new)\n        \n        diff[i] <- C.fun(distr.P,distr.Q) - C.fun(distr.P.new,distr.Q.new)\n       # diff[i] <-  C.fun(distr.P.new,distr.Q.new)\n        #print(diff)\n        \n        #-- update Wold\n        Wold <- W\n        Zold <- Z\n      }\n      pdf(paste0(fold.path,'/convergence.pdf'))\n      plot(1:maxiter,diff, xlab = 'iteration', ylab = 'delta cost function',main = paste0(\"Batch Gradient Descendent-gamma=\",gamma))\n      dev.off()\n      C.min <-  C.fun(distr.P.new,distr.Q.new)\n      saveRDS(C.min,paste0(fold.path,'/Cmin.RDS'))\n      saveRDS(Wold,paste0(fold.path,'/Wout.RDS'))\n      saveRDS(Zold,paste0(fold.path,'/Zout.RDS'))\n      saveRDS(diff,paste0(fold.path,'/diff.RDS'))\n    }\n  }\n \n}",
+    "created" : 1484560738788.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "3305210551",
+    "id" : "780F736B",
+    "lastKnownWriteTime" : 1484743655,
+    "last_content_update" : 1484743655212,
+    "path" : "~/My_project/tSNEcca/batch.grad.desc.fun.R",
+    "project_path" : "batch.grad.desc.fun.R",
+    "properties" : {
+        "tempName" : "Untitled1"
+    },
+    "relative_order" : 2,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_source"
+}
